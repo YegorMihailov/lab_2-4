@@ -1,5 +1,6 @@
-from typing import Iterator
+from typing import AsyncIterator
 from .task import Task
+import asyncio
 
 class TaskQueue:
     """A collection of Task objects"""
@@ -14,22 +15,23 @@ class TaskQueue:
 
         self._tasks.append(task)
 
-    def __iter__(self) -> Iterator[Task]:
+    async def __aiter__(self) -> AsyncIterator[Task]:
         """Return an iterator to allow repeatable traversal over the tasks"""
-
-        return iter(self._tasks)
+        for task in self._tasks:
+            await asyncio.sleep(0)
+            yield task
     
-    def filter_by_status(self, status: str) -> Iterator[Task]:
+    async def filter_by_status(self, status: str) -> AsyncIterator[Task]:
         """Yield tasks matching specific status"""
 
-        for task in self._tasks:
+        async for task in self._tasks:
             if task.status == status:
                 yield task
     
-    def filter_by_priority(self, min_priority: int, max_priority: int) -> Iterator[Task]:
+    async def filter_by_priority(self, min_priority: int, max_priority: int) -> AsyncIterator[Task]:
         """Yield tasks within priority range"""
 
-        for task in self._tasks:
+        async for task in self._tasks:
             if min_priority <= task.priority <= max_priority:
                 yield task
 
