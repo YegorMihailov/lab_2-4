@@ -24,14 +24,14 @@ class TaskQueue:
     async def filter_by_status(self, status: str) -> AsyncIterator[Task]:
         """Yield tasks matching specific status"""
 
-        async for task in self._tasks:
+        for task in self._tasks:
             if task.status == status:
                 yield task
     
     async def filter_by_priority(self, min_priority: int, max_priority: int) -> AsyncIterator[Task]:
         """Yield tasks within priority range"""
 
-        async for task in self._tasks:
+        for task in self._tasks:
             if min_priority <= task.priority <= max_priority:
                 yield task
 

@@ -3,7 +3,7 @@ from src.models import Task
 
 @runtime_checkable
 class TaskHandler(Protocol):
-    """A structural protocol defining the required interface for task source providers."""
+    """A structural protocol defining the required interface for all task handlers."""
     async def handle(self, task: Task) -> list[Task]:
-        """Retrieve a list of tasks from the source."""
+        """Process the given task"""
         pass

@@ -6,4 +6,8 @@ requires-python = ">=3.12"
 dependencies = [
     "aiofiles>=25.1.0",
     "pytest>=8.4.2",
+    "pytest-asyncio",
+    "pytest-cov",
 ]
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

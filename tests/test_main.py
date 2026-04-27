@@ -1,11 +1,22 @@
 import pytest, json, random, datetime
+import types
 from src.main import run_tasks
 from src.sources import GeneratorTaskSource, ApiTaskSource, FileTaskSource
-from src.models import Task
-from src.models import TaskQueue
-import types
+from src.models import Task, TaskQueue
+from src.executor import TaskExecutor
+from src.handlers import FileHandler, LoggingHandler
 
-def test_run_tasks(tmp_path):
+@pytest.mark.asyncio
+async def test_main():
+    """Test the complete application workflow"""
+
+    try:
+        await run_tasks()
+    except Exception as e:
+        pytest.fail(f"Error: {e}")
+
+@pytest.mark.asyncio
+async def test_task_sources(tmp_path):
     """Test that all task sources return valid Task objects"""
 
     data = [
@@ -48,25 +59,21 @@ def test_run_tasks(tmp_path):
     sources =[GeneratorTaskSource(), ApiTaskSource(), FileTaskSource(file)]
 
     for source in sources:
-        tasks = run_tasks(source)
-        assert all(isinstance(task, Task) for task in tasks)
-        assert isinstance(tasks, TaskQueue)
+        tasks = []
+        async for task in source.get_tasks():
+            tasks.append(task)
+            assert isinstance(task, Task)
+        assert len(tasks) > 0
 
-
-def test_wrong_source():
-    """Test run_tasks with invalid source"""
-
-    with pytest.raises(TypeError) as err:
-        run_tasks("invalid_source")
-    assert "does not match contract TaskSource" in str(err.value)
-
-def test_file_task_source_not_found():
+@pytest.mark.asyncio
+async def test_file_task_source_not_found():
     """Test FileTaskSource with non-existent file"""
 
     source = FileTaskSource("missing.json")
 
     with pytest.raises(ValueError) as err:
-        source.get_tasks()
+        async for _ in source.get_tasks():
+            pass
     
     assert "Error" in str(err.value)
 
@@ -111,25 +118,39 @@ def test_task_ready_to_start():
     task.status = 'in_progress'
     assert task.ready_to_start is False
 
-def test_add_task():
+@pytest.mark.asyncio
+async def test_add_task():
     """Test that tasks are correctly added and stored in the queue"""
 
     queue = TaskQueue()
     task1 = Task(id=1, description="Task desciption", priority=1)
-
     queue.add_task(task1)
-    assert isinstance(list(queue)[0], Task)
-    assert len(queue) == 1
 
-def test_filters_lazy():
+    tasks = []
+
+    async for task in queue:
+        tasks.append(task)
+        
+    assert len(tasks) == 1
+    assert isinstance(tasks[0], Task)
+
+@pytest.mark.asyncio
+async def test_filters_lazy():
     """Test that filtering methods return generator objects"""
 
     queue = TaskQueue()
     task1 = Task(id=1, description="Task desciption", priority=1)
     queue.add_task(task1)
-    assert isinstance(queue.filter_by_priority(1, 5), types.GeneratorType)
 
-def test_filter_by_priority():
+    tasks = []
+
+    async for task in queue:
+        tasks.append(task)
+
+    assert isinstance(queue.filter_by_priority(1, 5), types.AsyncGeneratorType)
+
+@pytest.mark.asyncio
+async def test_filter_by_priority():
     """Test if the priority filter correctly identifies tasks within priority range"""
 
     queue = TaskQueue()
@@ -142,10 +163,16 @@ def test_filter_by_priority():
     queue.add_task(task2)
     queue.add_task(task3)
 
-    assert len(list(queue.filter_by_priority(2, 4))) == 1
-    assert next(queue.filter_by_priority(2, 4)).id == 2
+    tasks = []
 
-def test_filter_by_status():
+    async for task in queue.filter_by_priority(2, 4):
+        tasks.append(task)
+
+    assert len(tasks) == 1
+    assert tasks[0].id == 2
+
+@pytest.mark.asyncio
+async def test_filter_by_status():
     """Test if the status filter correctly identifies tasks by status"""
 
     queue = TaskQueue()
@@ -156,31 +183,47 @@ def test_filter_by_status():
     queue.add_task(task1)
     queue.add_task(task2)
 
-    assert len(list(queue.filter_by_status('created'))) == 2
+    tasks = []
 
-def test_queue_repeat_iteration():
+    async for task in queue.filter_by_status('created'):
+        tasks.append(task)
+
+    assert len(tasks) == 2
+
+@pytest.mark.asyncio
+async def test_queue_repeat_iteration():
     """Test that the queue can be iterated multiple times without exhausting data"""
 
     queue = TaskQueue()
     queue.add_task(Task(id=1, description="Task desciption", priority=1))
     
-    pass1 = list(queue)
-    pass2 = list(queue)
-    
-    assert len(pass1) == len(pass2) == 1
+    res1 = [task async for task in queue]
+    res2 = [task async for task in queue]
 
-def test_stop_iteration():
-    """Test the iterator raises StopIteration after the last element"""
+    assert len(res1) == len(res2) == 1
+
+@pytest.mark.asyncio
+async def test_executor_with_handler():
+    """Test the TaskExecutor ability to dispatch tasks to appropriate handlers"""
 
     queue = TaskQueue()
-    queue.add_task(Task(id=1, description="Task desciption", priority=1))
-    
-    iterator = iter(queue)
-    next(iterator)
-    
-    with pytest.raises(StopIteration):
-        next(iterator)
 
-# def test_sum_compatibility():
-#     count = sum(1 for _ in queue)
-#     assert count == len(queue)
+    task1 = Task(id=77, payload={"type": "log"}, description="Task description", priority=1)
+    task2 = Task(id=78, payload={"type": "file"}, description="Task description", priority=2)
+    
+    queue.add_task(task1)
+    queue.add_task(task2)
+    
+    executor = TaskExecutor(queue)
+    executor.register_handler("log", LoggingHandler())
+    executor.register_handler("file", FileHandler())
+    
+    await executor.run()
+
+async def test_filters_async_generator():
+    """Test that filters return AsyncGenerator objects"""
+    
+    queue = TaskQueue()
+    assert isinstance(queue.filter_by_priority(1, 5), types.AsyncGeneratorType)
+    assert isinstance(queue.filter_by_status("created"), types.AsyncGeneratorType)
+
