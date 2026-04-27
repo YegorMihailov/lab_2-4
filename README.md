@@ -30,7 +30,8 @@
 │   ├── __init__.py
 │   └── test_main.py          # Тесты                
 ├── .gitignore                
-├── pyproject.toml         
+├── pyproject.toml   
+├── input.json                # Задачи для источника FileTaskSource
 ├── README.md                 # Документация
 └── requirements.txt          # Зависимости
 </pre>
