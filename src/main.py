@@ -5,6 +5,15 @@ from src.executor import TaskExecutor
 from src.handlers import FileHandler, LoggingHandler
 from src.sources import ApiTaskSource, FileTaskSource, GeneratorTaskSource
 
+async def load_from_source(source, queue):
+    """Loads tasks from single source into the queue."""
+
+    try:
+        async for task in source.get_tasks():
+            queue.add_task(task)
+    except Exception as e:
+        logging.error(f"Error loading from {source.__class__.__name__}: {e}")
+
 async def run_tasks():
     """Main entry point for the task processing application"""
 
@@ -20,12 +29,7 @@ async def run_tasks():
 
     logging.info("Loading tasks from sources")
 
-    for source in sources:
-        try:
-            async for task in source.get_tasks():
-                queue.add_task(task)
-        except Exception as e:
-            logging.error(f"Error loading from source: {e}")
+    await asyncio.gather(*(load_from_source(source, queue) for source in sources))
 
     executor = TaskExecutor(queue)
     executor.register_handler("file", FileHandler())
