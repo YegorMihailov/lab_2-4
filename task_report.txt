@@ -1,3 +1,0 @@
-ID: 100 | Status: created | Priority: 2 | Created: 2026-04-27 17:51:29.654982 | Data: {'type': 'file', 'order_id': 1462, 'description': 'API generated task'}
-ID: 103 | Status: created | Priority: 5 | Created: 2026-04-27 17:51:29.654982 | Data: {'type': 'file', 'order_id': 1747, 'description': 'API generated task'}
-ID: 78 | Status: created | Priority: 2 | Created: 2026-04-27 17:51:30.866082 | Data: {'type': 'file', 'description': 'Task description'}
